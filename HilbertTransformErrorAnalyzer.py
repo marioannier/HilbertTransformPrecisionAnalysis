@@ -86,3 +86,65 @@ class HilbertTransformErrorAnalyzer:
 
         return response
 
+    def calculate_rel_rmse(theory_data, measured_data):
+        """
+        Calculate relative root mean square error (rel_rmse) between theory_data and measured_data.
+
+        Parameters:
+            theory_data (numpy.ndarray): Theoretical data.
+            measured_data (numpy.ndarray): Measured data.
+
+        Returns:
+            float: Relative root mean square error.
+        """
+        # Calculate RMSE
+        rmse = np.sqrt(np.mean((theory_data - measured_data) ** 2))
+
+        # Calculate data range
+        data_range = np.max(theory_data) - np.min(theory_data)
+        # Alternatively, you can use the data range of measured_data:
+        # data_range = np.max(measured_data) - np.min(measured_data)
+
+        # Calculate relative RMSE
+        rel_rmse = (rmse / data_range) * 100
+        # Alternatively, you can use absolute RMSE without normalization:
+        # rel_rmse = rmse
+
+        return rel_rmse
+
+    def error_calculation(num_sim=1000, coef=None, tk=None, err=None):
+        NRMSE = np.zeros((2, len(err), num_sim))
+
+        # Fixed computations outside the loop
+        ak = np.abs(coef)
+        f_center = 8e9
+        FSR = f_center
+        T = 1 / FSR
+        f = np.linspace(0e9, 20e9, 3001)
+        w = 2 * np.pi * f
+        tk_ref = np.array([0.5, 2.5, 4.5, 7, 9, 11]) - 0.5
+
+        for s in range(num_sim):
+            # Precompute random values if they don't change during the loop
+            if len(coef) == 6:
+                tk_rand = np.random.rand(6) * err
+                tk = tk_ref + tk_rand
+            else:
+                tk = tk_ref
+
+            response_non_ref = -response_nonuni_HT(f, coef, T * tk_ref, T)
+            response_non_ref_dB = 10 * np.log10(np.abs(response_non_ref[300:2200]))
+            response_non_ref_dB = response_non_ref_dB - np.max(response_non_ref_dB)
+            response_non_ref_phase = np.angle(response_non_ref[300:2200])
+
+            response_non = -response_nonuni_HT(f, ak, T * tk, T)
+            response_non_dB = 10 * np.log10(np.abs(response_non[300:2200]))
+            response_non_dB = response_non_dB - np.max(response_non_dB)
+            response_non_phase = np.angle(response_non[300:2200])
+
+            NRMSE[0, :, s] = calculate_rel_rmse(response_non_ref_dB, response_non_dB)
+            NRMSE[1, :, s] = calculate_rel_rmse(response_non_ref_phase, response_non_phase)
+
+        return NRMSE
+
+
