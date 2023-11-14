@@ -1,16 +1,13 @@
-# This is a sample Python script.
+import numpy as np
 
-# Press Mayús+F10 to execute it or replace it with your code.
-# Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
+coef = np.array([-0.127, -0.212, -0.634, 1, 0.634, 0.212, 0.127])
 
+n = len(coef)
+reg_coef = np.arange(-n + 2, n, 2)
+reg_coef = np.insert(reg_coef, n // 2, 0)
 
-def print_hi(name):
-    # Use a breakpoint in the code line below to debug your script.
-    print(f'Hi, {name}')  # Press Ctrl+F8 to toggle the breakpoint.
+thita = np.where(coef < 0, np.pi, 0)
+tk = reg_coef - thita / (2 * np.pi)
 
+print("tk:", tk)
 
-# Press the green button in the gutter to run the script.
-if __name__ == '__main__':
-    print_hi('PyCharm')
-
-# See PyCharm help at https://www.jetbrains.com/help/pycharm/

@@ -1,35 +1,40 @@
 import numpy as np
 class HilbertTransformErrorAnalyzer:
     """
-      HilbertTransformErrorAnalyzer - Class for analyzing errors in the fractional Hilbert transform.
-
-      This class is designed to determine the error in the fractional Hilbert transform when using
-      nonuniformly delayed taps coefficients approach with empirical probabilities.
+      HilbertTransformErrorAnalyzer - This class is designed to determine the error in the fractional Hilbert
+      transform(FHT) when using nonuniformly delayed taps coefficients approach with empirical probabilities.
 
       Attributes:
-          coefficients (list): List of coefficients for the nonuniformly delayed taps approach.
-          empirical_probabilities (list): List of empirical probabilities used in the analysis.
+          order (float): order ρ of the FHT results in a phase shift of ±ρπ/2 around the central frequency
+          number_coef (int): NUmber of coefficients for bulting the FHT.
 
       Methods:
-          __init__(self, coefficients, empirical_probabilities):
-              Initializes the HilbertTransformErrorAnalyzer with coefficients and empirical probabilities.
+          __init__(self, order, number_coef):
+              Initializes the HilbertTransformErrorAnalyzer for an order using a number_coef.
 
           calculate_error(self):
               Calculates the error in the fractional Hilbert transform based on the provided coefficients
               and empirical probabilities.
 
+          response_nonuni_HT():
+
+          calculate_rel_rmse():
+
+          error_calculation():
+
       Example usage:
-          >>> coefficients = [0.5, 0.2, -0.1, 0.3]
-          >>> probabilities = [0.25, 0.4, 0.2, 0.15]
-          >>> analyzer = HilbertTransformErrorAnalyzer(coefficients, probabilities)
-          >>> error = analyzer.calculate_error()
+          >>> order = 1
+          >>> number_coef = 7
+          >>> analyzer = HilbertTransformErrorAnalyzer(order, number_coef)
+          >>> error = analyzer.error_calculation()
+          >>> MORE DETAILS; plots....
           >>> print(error)
       """
-    def __init__(self, coefficients, empirical_probabilities):
+    def __init__(self):
         # Constructor implementation
 
 
-    def response_nonuni_HT(f, ak, tk, T):
+    def response_nonuni_HT(self, f, ak, tk, T):
         """
         Calculate the response of a fractional Hilbert transformer based on a nonuniformly spaced delay-line filter.
 
@@ -59,43 +64,16 @@ class HilbertTransformErrorAnalyzer:
         return response
 
 
-
-    def response_uni_HT(f, coef, hp, T):
+    def calculate_rel_rmse(self, theory_data, measured_data):
         """
-        Calculate the response of a fractional Hilbert transformer based on a uniformly spaced delay-line filter.
-
-        The fractional Hilbert transformer response H_FHT(ω) can be expressed as:
-        H_FHT(ω) = ∑_(k=-n)^n β_k * e^(-jωτ_k)
-
-        Reference:
-        [Include reference if available]
-
-        Parameters:
-            f (numpy.ndarray): Frequency values.
-            coef (numpy.ndarray): Coefficients for the uniformly spaced delay-line filter.
-            hp (numpy.ndarray): Delay values.
-            T (float): Parameter used in the response calculation.
-
-        Returns:
-            numpy.ndarray: The calculated response for each frequency in f.
-        """
-        omega_tau = -2 * np.pi * f[:, np.newaxis] * hp
-        extra_phase = 1j * 6 * T * 2 * np.pi * f
-
-        response = np.sum(coef * np.exp(omega_tau) * np.exp(extra_phase), axis=1)
-
-        return response
-
-    def calculate_rel_rmse(theory_data, measured_data):
-        """
-        Calculate relative root mean square error (rel_rmse) between theory_data and measured_data.
+        Calculate relative root-mean-square error (rel_rmse) between theory_data and measured_data.
 
         Parameters:
             theory_data (numpy.ndarray): Theoretical data.
             measured_data (numpy.ndarray): Measured data.
 
         Returns:
-            float: Relative root mean square error.
+            float: Relative root-mean-square error.
         """
         # Calculate RMSE
         rmse = np.sqrt(np.mean((theory_data - measured_data) ** 2))
@@ -112,38 +90,96 @@ class HilbertTransformErrorAnalyzer:
 
         return rel_rmse
 
-    def error_calculation(num_sim=1000, coef=None, tk=None, err=None):
-        NRMSE = np.zeros((2, len(err), num_sim))
+    def calculate_coef(self, angle=90, numtaps=6):
+        """
+        Generate coefficients (coef) and magnitudes (ak) for the Fractional Hilbert Transform response.
 
-        # Fixed computations outside the loop
+        Parameters:
+            angle (float): The value of the angle in degrees.
+
+        Returns:
+            tuple: Tuple containing coefficients (coef) and magnitudes (ak).
+        """
+        # Define the values of alpha
+        phi = np.deg2rad(angle)
+
+        # Define the time axis
+        t = np.linspace(-6, 6, 5000)
+
+        # Compute the Fractional Hilbert transform
+        fht = np.sin(phi) * (2 / np.pi) * (np.sin((np.pi * t) / 2) ** 2) / t
+        fht[len(t) // 2] = np.cos(phi)
+
+        # finding the uniformly spaced values
+        coef = np.zeros(numtaps + 1)
+        coef[0] = round(abs(fht[len(t) // 2]), 3)
+
+        for i in range(1, numtaps // 2 + 1):
+            td_index = np.argmax(t[len(t) // 2:] >= 2 * (i - 1) + 1)
+            coef[i] = fht[len(t) // 2 + td_index]
+
+        # Create the symmetric coefficients array
+        coef = np.concatenate([-coef[1:][::-1], coef])
+
+        # remove zero coefficients and round
+        coef = np.round(coef[coef != 0], 3)
+
+        return coef
+
+    def calculate_non_unif_coef (self, coef):
+        # the time delay and the coefficient of the th tap in our case at the first channel are given by
+        # [1] Y. Dai and J. Yao, “Nonuniformly Spaced Photonic Microwave Delay-Line Filters and Applications,”
+        # IEEE Transactions on Microwave Theory and Techniques, vol. 58, no. 11, pp. 3279–3289, Nov. 2010
+
         ak = np.abs(coef)
+
+        n = len(coef)
+        reg_coef = np.arange(-n + 2, n, 2)
+        reg_coef = np.insert(reg_coef, n // 2, 0)
+
+        thita = np.where(coef < 0, np.pi, 0)
+        tk = reg_coef - thita / (2 * np.pi)
+
+        return ak, tk
+
+    def error_calculation(self, num_sim=1000, err_range = [-0.1, 0.1], order = 1, number_coef = 7):
+
+        NRMSE = np.zeros((2, num_sim))
+        angle = np.rad2deg(order*np.pi/2)
+
+        coef = self.calculate_coef(angle,number_coef)
+        ak, tk = self.calculate_non_unif_coef(coef)
+
         f_center = 8e9
         FSR = f_center
         T = 1 / FSR
         f = np.linspace(0e9, 20e9, 3001)
-        w = 2 * np.pi * f
-        tk_ref = np.array([0.5, 2.5, 4.5, 7, 9, 11]) - 0.5
 
-        for s in range(num_sim):
-            # Precompute random values if they don't change during the loop
-            if len(coef) == 6:
-                tk_rand = np.random.rand(6) * err
-                tk = tk_ref + tk_rand
-            else:
-                tk = tk_ref
+        # the error in time is based on T, the error goes from err_range[0]*T to err_range[0]*T with num_sim steps
+        error_limits = np.linspace(err_range[0]*T, err_range[1]*T, num_sim)
+        #defining random seed
+        np.random.seed(123)
 
-            response_non_ref = -response_nonuni_HT(f, coef, T * tk_ref, T)
-            response_non_ref_dB = 10 * np.log10(np.abs(response_non_ref[300:2200]))
-            response_non_ref_dB = response_non_ref_dB - np.max(response_non_ref_dB)
-            response_non_ref_phase = np.angle(response_non_ref[300:2200])
+        # determining the reference, data without an error
+        response_non_ref = -self.response_nonuni_HT(f, ak, T * tk, T)
+        response_non_ref_dB = 10 * np.log10(
+        np.abs(response_non_ref[300:2200]))  # the bandwidth of interest is delimited here
+        response_non_ref_dB = response_non_ref_dB - np.max(response_non_ref_dB)
+        response_non_ref_phase = np.angle(response_non_ref[300:2200])  # the bandwidth of interest is delimited here
 
-            response_non = -response_nonuni_HT(f, ak, T * tk, T)
+
+        for i, e in enumerate(error_limits):
+            #adding the error
+            tk_rand = np.random.rand(number_coef) * e
+            tk = tk + tk_rand - tk[0] # - tk[0] is used because the response_nonuni_HT() works only with positive values
+
+            response_non = -np.response_nonuni_HT(f, ak, T * tk, T)
             response_non_dB = 10 * np.log10(np.abs(response_non[300:2200]))
             response_non_dB = response_non_dB - np.max(response_non_dB)
             response_non_phase = np.angle(response_non[300:2200])
 
-            NRMSE[0, :, s] = calculate_rel_rmse(response_non_ref_dB, response_non_dB)
-            NRMSE[1, :, s] = calculate_rel_rmse(response_non_ref_phase, response_non_phase)
+            NRMSE[0, :, i] = self.calculate_rel_rmse(response_non_ref_dB, response_non_dB)
+            NRMSE[1, :, i] = self.calculate_rel_rmse(response_non_ref_phase, response_non_phase)
 
         return NRMSE
 
