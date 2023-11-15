@@ -1,4 +1,6 @@
 import numpy as np
+
+
 class HilbertTransformErrorAnalyzer:
     """
       HilbertTransformErrorAnalyzer - This class is designed to determine the error in the fractional Hilbert
@@ -30,9 +32,14 @@ class HilbertTransformErrorAnalyzer:
           >>> MORE DETAILS; plots....
           >>> print(error)
       """
-    def __init__(self):
-        # Constructor implementation
 
+    def __init__(self, num_sim=1000, err_range=[-0.1, 0.1], order=1, number_coef=7, f_center=8e9):
+        # Constructor implementation
+        self.num_sim = num_sim
+        self.err_range = err_range
+        self.order = order
+        self.number_coef = number_coef
+        self.f_center = f_center
 
     def response_nonuni_HT(self, f, ak, tk, T):
         """
@@ -56,13 +63,12 @@ class HilbertTransformErrorAnalyzer:
         Returns:
             numpy.ndarray: The calculated response for each frequency in f.
         """
-        omega_tau = -2 * np.pi * f[:, np.newaxis] * tk
-        extra_phase = 1j * 5.5 * T * 2 * np.pi * f
+        response = np.zeros_like(f, dtype=np.complex128)
 
-        response = np.sum(ak * np.exp(omega_tau) * np.exp(extra_phase), axis=1)
+        for c in range(len(ak)):
+            response += ak[c] * np.exp(-1j * tk[c] * 2 * np.pi * f) * np.exp(1j * 5.5 * T * 2 * np.pi * f)
 
         return response
-
 
     def calculate_rel_rmse(self, theory_data, measured_data):
         """
@@ -90,7 +96,7 @@ class HilbertTransformErrorAnalyzer:
 
         return rel_rmse
 
-    def calculate_coef(self, angle=90, numtaps=6):
+    def calculate_coef(self, angle=90, numtaps=7):
         """
         Generate coefficients (coef) and magnitudes (ak) for the Fractional Hilbert Transform response.
 
@@ -111,22 +117,29 @@ class HilbertTransformErrorAnalyzer:
         fht[len(t) // 2] = np.cos(phi)
 
         # finding the uniformly spaced values
-        coef = np.zeros(numtaps + 1)
-        coef[0] = round(abs(fht[len(t) // 2]), 3)
+        coef_pos = np.zeros(numtaps // 2)
 
         for i in range(1, numtaps // 2 + 1):
             td_index = np.argmax(t[len(t) // 2:] >= 2 * (i - 1) + 1)
-            coef[i] = fht[len(t) // 2 + td_index]
+            coef_pos[i-1] = fht[len(t) // 2 + td_index]
+        # remove zero coefficients
+        #coef_pos = coef_pos[coef_pos != 0]
+
+        # the central coefficient zero for classical HT
+        coef_zeroth = np.array(round(abs(fht[len(t) // 2]), 3))
 
         # Create the symmetric coefficients array
-        coef = np.concatenate([-coef[1:][::-1], coef])
+        coef_neg = -coef_pos[0:][::-1]
 
-        # remove zero coefficients and round
-        coef = np.round(coef[coef != 0], 3)
+        # concatenate all coefficients
+        coef = np.hstack((coef_neg, coef_zeroth, coef_pos))
+
+        # round values
+        coef = np.round(coef, 3)
 
         return coef
 
-    def calculate_non_unif_coef (self, coef):
+    def calculate_non_unif_coef(self, coef):
         # the time delay and the coefficient of the th tap in our case at the first channel are given by
         # [1] Y. Dai and J. Yao, “Nonuniformly Spaced Photonic Microwave Delay-Line Filters and Applications,”
         # IEEE Transactions on Microwave Theory and Techniques, vol. 58, no. 11, pp. 3279–3289, Nov. 2010
@@ -142,38 +155,37 @@ class HilbertTransformErrorAnalyzer:
 
         return ak, tk
 
-    def error_calculation(self, num_sim=1000, err_range = [-0.1, 0.1], order = 1, number_coef = 7):
+    def error_calculation(self, num_sim=1000, err_range=[-0.1, 0.1], order=1, number_coef=7, f_center=8e9):
 
-        NRMSE = np.zeros((2, num_sim))
-        angle = np.rad2deg(order*np.pi/2)
+        NRMSE = np.zeros((2, num_sim, num_sim))
+        angle = np.rad2deg(order * np.pi / 2)
 
-        coef = self.calculate_coef(angle,number_coef)
+        coef = self.calculate_coef(angle, number_coef)
         ak, tk = self.calculate_non_unif_coef(coef)
 
-        f_center = 8e9
-        FSR = f_center
+        FSR = self.f_center
         T = 1 / FSR
         f = np.linspace(0e9, 20e9, 3001)
 
         # the error in time is based on T, the error goes from err_range[0]*T to err_range[0]*T with num_sim steps
-        error_limits = np.linspace(err_range[0]*T, err_range[1]*T, num_sim)
-        #defining random seed
+        error_limits = np.linspace(err_range[0] * T, err_range[1] * T, num_sim)
+        # defining random seed
         np.random.seed(123)
 
         # determining the reference, data without an error
         response_non_ref = -self.response_nonuni_HT(f, ak, T * tk, T)
         response_non_ref_dB = 10 * np.log10(
-        np.abs(response_non_ref[300:2200]))  # the bandwidth of interest is delimited here
+            np.abs(response_non_ref[300:2200]))  # the bandwidth of interest is delimited here
         response_non_ref_dB = response_non_ref_dB - np.max(response_non_ref_dB)
         response_non_ref_phase = np.angle(response_non_ref[300:2200])  # the bandwidth of interest is delimited here
 
-
         for i, e in enumerate(error_limits):
-            #adding the error
+            # adding the error
             tk_rand = np.random.rand(number_coef) * e
-            tk = tk + tk_rand - tk[0] # - tk[0] is used because the response_nonuni_HT() works only with positive values
+            tk = tk + tk_rand - tk[
+                0]  # - tk[0] is used because the response_nonuni_HT() works only with positive values
 
-            response_non = -np.response_nonuni_HT(f, ak, T * tk, T)
+            response_non = -self.response_nonuni_HT(f, ak, T * tk, T)
             response_non_dB = 10 * np.log10(np.abs(response_non[300:2200]))
             response_non_dB = response_non_dB - np.max(response_non_dB)
             response_non_phase = np.angle(response_non[300:2200])
@@ -182,5 +194,3 @@ class HilbertTransformErrorAnalyzer:
             NRMSE[1, :, i] = self.calculate_rel_rmse(response_non_ref_phase, response_non_phase)
 
         return NRMSE
-
-
