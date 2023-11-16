@@ -121,9 +121,9 @@ class HilbertTransformErrorAnalyzer:
 
         for i in range(1, numtaps // 2 + 1):
             td_index = np.argmax(t[len(t) // 2:] >= 2 * (i - 1) + 1)
-            coef_pos[i-1] = fht[len(t) // 2 + td_index]
+            coef_pos[i - 1] = fht[len(t) // 2 + td_index]
         # remove zero coefficients
-        #coef_pos = coef_pos[coef_pos != 0]
+        # coef_pos = coef_pos[coef_pos != 0]
 
         # the central coefficient zero for classical HT
         coef_zeroth = np.array(round(abs(fht[len(t) // 2]), 3))
@@ -155,7 +155,7 @@ class HilbertTransformErrorAnalyzer:
 
         return ak, tk
 
-    def error_calculation(self, num_sim=1000, err_range=[-0.1, 0.1], order=1, number_coef=7, f_center=8e9):
+    def error_calculation(self, num_sim=100, err_range=[-0.02, 0.02], order=1, number_coef=7, f_center=8e9): # 0.02 is 10% of 2T
 
         NRMSE = np.zeros((2, num_sim, num_sim))
         angle = np.rad2deg(order * np.pi / 2)
@@ -168,9 +168,9 @@ class HilbertTransformErrorAnalyzer:
         f = np.linspace(0e9, 20e9, 3001)
 
         # the error in time is based on T, the error goes from err_range[0]*T to err_range[0]*T with num_sim steps
-        error_limits = np.linspace(err_range[0] * T, err_range[1] * T, num_sim)
+        error_limits = np.linspace(err_range[0], err_range[1], num_sim)
         # defining random seed
-        np.random.seed(123)
+        # np.random.seed(123)
 
         # determining the reference, data without an error
         response_non_ref = -self.response_nonuni_HT(f, ak, T * tk, T)
@@ -178,19 +178,25 @@ class HilbertTransformErrorAnalyzer:
             np.abs(response_non_ref[300:2200]))  # the bandwidth of interest is delimited here
         response_non_ref_dB = response_non_ref_dB - np.max(response_non_ref_dB)
         response_non_ref_phase = np.angle(response_non_ref[300:2200])  # the bandwidth of interest is delimited here
+        for n in range(num_sim):
+            print('Simulating: ', n, ' from: ', num_sim)
+            for i, e in enumerate(error_limits):
+                # adding the error
+                tk_rand = np.random.rand(number_coef) * e
+                tk = tk + tk_rand - tk[
+                    0]  # - tk[0] is used because the response_nonuni_HT() works only with positive values
 
-        for i, e in enumerate(error_limits):
-            # adding the error
-            tk_rand = np.random.rand(number_coef) * e
-            tk = tk + tk_rand - tk[
-                0]  # - tk[0] is used because the response_nonuni_HT() works only with positive values
+                response_non = -self.response_nonuni_HT(f, ak, T * tk, T)
+                response_non_dB = 10 * np.log10(np.abs(response_non[300:2200]))
+                response_non_dB = response_non_dB - np.max(response_non_dB)
+                response_non_phase = np.angle(response_non[300:2200])
 
-            response_non = -self.response_nonuni_HT(f, ak, T * tk, T)
-            response_non_dB = 10 * np.log10(np.abs(response_non[300:2200]))
-            response_non_dB = response_non_dB - np.max(response_non_dB)
-            response_non_phase = np.angle(response_non[300:2200])
+                NRMSE[0, i, n] = self.calculate_rel_rmse(response_non_ref_dB, response_non_dB)
+                NRMSE[1, i, n] = self.calculate_rel_rmse(response_non_ref_phase, response_non_phase)
 
-            NRMSE[0, :, i] = self.calculate_rel_rmse(response_non_ref_dB, response_non_dB)
-            NRMSE[1, :, i] = self.calculate_rel_rmse(response_non_ref_phase, response_non_phase)
+                # print("Simulation number", NRMSE[1, :, i])
+
+                # print("Simulation number", i, "NRMSE[0, :, i] MAGNITUDE:", NRMSE[0, :, i], "NRMSE[1, :, i] PHASE",
+                # NRMSE[1, :, i])
 
         return NRMSE
