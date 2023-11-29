@@ -3,10 +3,10 @@ import matplotlib.pyplot as plt
 from FHT_ErrorAnalyzer import HilbertTransformErrorAnalyzer
 
 My_FHTErrorAnalyzer = HilbertTransformErrorAnalyzer()
-NRMSE = My_FHTErrorAnalyzer.error_calculation(num_sim=100, err_range=[-0.0125, 0.0125], order=1, number_coef=7,
+NRMSE = My_FHTErrorAnalyzer.error_calculation(num_sim=1000, err_range=[-0.125, 0.125], order=1, number_coef=7,
                                               f_center=8e9)
-np.save('NRMSE1000.npy', NRMSE)
-porc = np.linspace(-1, 1, 100)
+#np.save('NRMSE1000.npy', NRMSE)
+porc = np.linspace(-1, 1, 1000)
 NRMSE_2d = np.mean(NRMSE, axis=2)  # ANNIER -> change this add the center of the gaussian distribution
 
 # NRMSE_2d[0, :] = np.convolve(NRMSE_2d[0, :], np.ones(5) / 5, mode='same')

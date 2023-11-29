@@ -169,11 +169,11 @@ class HilbertTransformErrorAnalyzer:
 
         # the error in time is based on T, the error goes from err_range[0]*T to err_range[0]*T with num_sim steps
         error_limits = np.linspace(err_range[0], err_range[1], num_sim)
+
         # defining random seed
         # np.random.seed(123)
 
         tk = tk - tk[0] # - tk[0] is used because the response_nonuni_HT() works only with positive values
-
 
         # determining the reference, data without an error
         response_non_ref = -self.response_nonuni_HT(f, ak, T * tk, T)
@@ -181,22 +181,23 @@ class HilbertTransformErrorAnalyzer:
             np.abs(response_non_ref[300:2200]))  # the bandwidth of interest is delimited here
         response_non_ref_dB = response_non_ref_dB - np.max(response_non_ref_dB)
         response_non_ref_phase = np.angle(response_non_ref[300:2200])  # the bandwidth of interest is delimited here
+
         for n in range(num_sim):
             print('Simulating: ', n, ' of: ', num_sim)
             for i, e in enumerate(error_limits):
                 # adding the error
                 tk_rand = np.random.rand(number_coef) * e
-                tk = tk + tk_rand - tk[
+                tk_2 = tk + tk_rand - tk[
                     0]  # - tk[0] is used because the response_nonuni_HT() works only with positive values
+                #print(tk_rand)
+                #print(tk)
 
-
-                response_non = -self.response_nonuni_HT(f, ak, T * tk, T)
+                response_non = -self.response_nonuni_HT(f, ak, T * tk_2, T)
                 response_non_dB = 10 * np.log10(np.abs(response_non[300:2200]))
                 response_non_dB = response_non_dB - np.max(response_non_dB)
                 response_non_phase = np.angle(response_non[300:2200])
 
                 '''
-
                 plt.figure()
                 plt.plot(f[300:2200], response_non_dB)
                 plt.plot(f[300:2200], response_non_ref_dB, '--k', linewidth=1.5)
@@ -215,12 +216,12 @@ class HilbertTransformErrorAnalyzer:
                 '''
 
 
+
+
                 NRMSE[0, i, n] = self.calculate_rel_rmse(response_non_ref_dB, response_non_dB)
                 NRMSE[1, i, n] = self.calculate_rel_rmse(response_non_ref_phase, response_non_phase)
 
-                # print("Simulation number", NRMSE[1, :, i])
-
-                #print("Simulation number", i, "NRMSE[0, :, i] MAGNITUDE:", NRMSE[0, :, i], "NRMSE[1, :, i] PHASE",
-                 #NRMSE[1, :, i])
+            #print("Simulation number", n)
+            #print("MAGNITUDE:", NRMSE[0, :, n], "PHASE", NRMSE[1, :, n])
 
         return NRMSE
