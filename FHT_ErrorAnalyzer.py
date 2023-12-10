@@ -1,5 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib as mpl
+from scipy.optimize import curve_fit
 
 class HilbertTransformErrorAnalyzer:
     """
@@ -189,39 +191,111 @@ class HilbertTransformErrorAnalyzer:
                 tk_rand = np.random.rand(number_coef) * e
                 tk_2 = tk + tk_rand - tk[
                     0]  # - tk[0] is used because the response_nonuni_HT() works only with positive values
-                #print(tk_rand)
-                #print(tk)
 
                 response_non = -self.response_nonuni_HT(f, ak, T * tk_2, T)
                 response_non_dB = 10 * np.log10(np.abs(response_non[300:2200]))
                 response_non_dB = response_non_dB - np.max(response_non_dB)
                 response_non_phase = np.angle(response_non[300:2200])
 
-                '''
-                plt.figure()
-                plt.plot(f[300:2200], response_non_dB)
-                plt.plot(f[300:2200], response_non_ref_dB, '--k', linewidth=1.5)
-                plt.legend(['response_non_dB', 'response_non_ref_dB'])
-                plt.xlabel('freq')
-                plt.ylabel('Amplitude db')
-                plt.show()
-
-                plt.figure()
-                plt.plot(f[300:2200], response_non_phase)
-                plt.plot(f[300:2200], response_non_ref_phase, '--k', linewidth=1.5)
-                plt.legend(['response_non_phase', 'response_non_ref_phase'])
-                plt.xlabel('freq')
-                plt.ylabel('phase db')
-                plt.show()
-                '''
-
-
-
 
                 NRMSE[0, i, n] = self.calculate_rel_rmse(response_non_ref_dB, response_non_dB)
-                NRMSE[1, i, n] = self.calculate_rel_rmse(response_non_ref_phase, response_non_phase)
-
-            #print("Simulation number", n)
-            #print("MAGNITUDE:", NRMSE[0, :, n], "PHASE", NRMSE[1, :, n])
+                NRMSE[1, i, n] = self.calculate_rel_rmse(response_non_phase, response_non_ref_phase)
 
         return NRMSE
+
+    def center_values_3d_histogram(self, data):
+        # Ensure data is a 3D array
+        if data.ndim != 3:
+            raise ValueError("Input array must be 3D")
+
+        # Get the shape of the array
+        dim1, dim2, dim3 = data.shape
+
+        # Initialize an array to store center values
+        center_values = np.zeros((dim1, dim2))
+
+        # Define a Gaussian function for curve fitting
+        def gaussian(x, amplitude, mean, stddev):
+            return amplitude * np.exp(-((x - mean) / (2 * stddev)) ** 2)
+
+        # Calculate histograms and find center value for each slice along the third dimension
+        for i in range(dim1):
+            for j in range(dim2):
+                histogram, bin_edges = np.histogram(data[i, j, :], bins=20)
+                bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
+
+                # Fit the histogram to a Gaussian function
+                initial_guess = [np.max(histogram), bin_centers[np.argmax(histogram)], np.std(data[i, j, :])]
+                params, covariance = curve_fit(gaussian, bin_centers, histogram, p0=initial_guess)
+                print(params)
+
+                # Extract the mean (center) value from the fitted parameters
+                center_values[i, j] = params[1]
+                '''
+
+                # Plot the histogram and the fitted Gaussian
+                plt.figure()
+                plt.plot(bin_centers, histogram, label='Histogram')
+                plt.plot(bin_centers, gaussian(bin_centers, *params), label='Gaussian Fit')
+                plt.title(f'Histogram and Gaussian Fit for i={i}, j={j}')
+                plt.xlabel('Value')
+                plt.ylabel('Frequency')
+                plt.legend()
+                plt.show()'''
+
+        return center_values
+
+
+    def plot_nrmse(self, NRMSE, err_range, num_sim):
+
+        mpl.use('TkAgg')  # or can use 'TkAgg', whatever you have/prefer
+
+        porc = np.linspace(err_range[0], err_range[1], num_sim)
+        #NRMSE_2d = np.mean(NRMSE, axis=2)
+        NRMSE_2d = self.center_values_3d_histogram(NRMSE)
+
+        # Plot for the first case
+        plt.figure()
+        plt.plot(porc, NRMSE[0, :, 0])
+        plt.plot(porc, NRMSE_2d[0, :], '--k', linewidth=1.5)
+        plt.legend(['RMSE Case 1', '', 'Mean RMSE (5000 cases)'])
+        plt.xlabel('Taps error rate (%)')
+        plt.ylabel('RMSE')
+
+        # Plot for the second case
+        plt.figure()
+        plt.plot(porc, NRMSE[1, :, 0])
+        plt.plot(porc, NRMSE_2d[1, :], '--k', linewidth=1.5)
+        plt.legend(['RMSE Case 1', '', 'Mean RMSE (5000 cases)'])
+        plt.xlabel('Taps error rate (%)')
+        plt.ylabel('RMSE')
+        plt.show()
+
+    def plot_3d_nrmse(self, NRMSE, err_range, num_sim):
+        mpl.use('TkAgg')  # or can use 'TkAgg', whatever you have/prefer
+        # Get the dimensions
+        dim1, dim2, dim3 = NRMSE.shape
+
+        # Plot for the first dimension
+        fig1 = plt.figure(figsize=(8, 6))
+        ax1 = fig1.add_subplot(111, projection='3d')
+        x1, y1 = np.meshgrid(np.linspace(err_range[0], err_range[1], num_sim), range(dim3))
+        ax1.plot_surface(x1, y1, NRMSE[0, :, :], cmap='viridis')
+        ax1.set_title('First Dimension')
+        ax1.set_xlabel('X-axis')
+        ax1.set_ylabel('Y-axis')
+        ax1.set_zlabel('Value')
+
+        # Plot for the second dimension
+        fig2 = plt.figure(figsize=(8, 6))
+        ax2 = fig2.add_subplot(111, projection='3d')
+        x2, y2 = np.meshgrid(np.linspace(err_range[0], err_range[1], num_sim), range(dim3))
+        ax2.plot_surface(x2, y2, NRMSE[1, :, :], cmap='viridis')
+        ax2.set_title('Second Dimension')
+        ax2.set_xlabel('X-axis')
+        ax2.set_ylabel('Y-axis')
+        ax2.set_zlabel('Value')
+
+        plt.show()
+
+
