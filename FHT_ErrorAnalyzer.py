@@ -5,34 +5,50 @@ from scipy.optimize import curve_fit
 
 class HilbertTransformErrorAnalyzer:
     """
-      HilbertTransformErrorAnalyzer - This class is designed to determine the error in the fractional Hilbert
-      transform(FHT) when using nonuniformly delayed taps coefficients approach with empirical probabilities.
+    HilbertTransformErrorAnalyzer - This class is designed to determine the error in the fractional Hilbert
+    transform(FHT) when using nonuniformly delayed taps coefficients approach with empirical probabilities.
 
-      Attributes:
-          order (float): order ρ of the FHT results in a phase shift of ±ρπ/2 around the central frequency
-          number_coef (int): Number of coefficients for building the FHT.
+    Attributes:
+        num_sim (int): Number of simulations.
+        err_range (list): Range of error rates in taps, given as a percentage, e.g., [-10, 10].
+        order (float): Order ρ of the FHT results in a phase shift of ±ρπ/2 around the central frequency.
+        number_coef (int): Number of coefficients for building the FHT.
+        f_center (float): Central frequency for the response.
 
-      Methods:
-          __init__(self, order, number_coef):
-               Initialize the HilbertTransformErrorAnalyzer for an order using a number_coef.
+    Methods:
 
-          calculate_error(self):
-              Calculates the error in the fractional Hilbert transform based on the provided coefficients
-              and empirical probabilities.
+        response_nonuni_HT(self, f, ak, tk, T):
+            Calculate the response of a fractional Hilbert transformer based on a nonuniformly spaced delay-line filter.
 
-          response_nonuni_HT():
+        calculate_rel_rmse(self, theory_data, measured_data):
+            Calculate relative root-mean-square error (rel_rmse) between theory_data and measured_data.
 
-          calculate_rel_rmse():
+        calculate_coef(self, angle=90, numtaps=7):
+            Generate coefficients (coef) and magnitudes (ak) for the Fractional Hilbert Transform response.
 
-          error_calculation():
+        calculate_non_unif_coef(self, coef):
+            Calculate time delays (tk) and coefficients (ak) for a nonuniformly spaced delay-line filter.
+
+        error_calculation(self, num_sim=100, err_range=[-10, 10], order=1, number_coef=7, f_center=8e9):
+            Perform simulations to calculate the NRMSE for magnitude and phase.
+
+        plot_nrmse(self, NRMSE, err_range, num_sim):
+            Plot NRMSE distributions for magnitude and phase.
+
+        plot_3d_nrmse(self, NRMSE, err_range, num_sim):
+            Plot 3D NRMSE distributions for magnitude and phase.
 
       Example usage:
-          >>> order = 1
-          >>> number_coef = 7
-          >>> analyzer = HilbertTransformErrorAnalyzer(order, number_coef)
-          >>> error = analyzer.error_calculation()
-          >>> MORE DETAILS; plots....
-          >>> print(error)
+            >>> My_FHTErrorAnalyzer = HilbertTransformErrorAnalyzer()
+            >>> err_range = [-10, 10]
+            >>> num_sim = 1001
+            >>> order = 1
+            >>> number_coef = 7
+            >>> f_center = 8e9
+            >>> NRMSE = My_FHTErrorAnalyzer.error_calculation(num_sim, err_range, order, number_coef, f_center)
+            >>> My_FHTErrorAnalyzer.plot_nrmse(NRMSE, err_range, num_sim)
+            >>> My_FHTErrorAnalyzer.plot_3d_nrmse(NRMSE, err_range, num_sim)
+            >>> plt.show()
       """
 
     def __init__(self, num_sim=1000, err_range=[-10, 10], order=1, number_coef=7, f_center=8e9):
@@ -136,9 +152,19 @@ class HilbertTransformErrorAnalyzer:
         return coef
 
     def calculate_non_unif_coef(self, coef):
-        # the time delay and the coefficient of the th tap in our case at the first channel are given by
-        # [1] Y. Dai and J. Yao, “Nonuniformly Spaced Photonic Microwave Delay-Line Filters and Applications,”
-        # IEEE Transactions on Microwave Theory and Techniques, vol. 58, no. 11, pp. 3279–3289, Nov. 2010
+        """
+        Calculate the time delay (tk) and coefficients (ak) for a nonuniformly spaced delay-line filter based on the input coefficients.
+
+        The time delay and coefficient of the th tap, especially in the first channel, are given by the following reference:
+        [1] Y. Dai and J. Yao, “Nonuniformly Spaced Photonic Microwave Delay-Line Filters and Applications,”
+        IEEE Transactions on Microwave Theory and Techniques, vol. 58, no. 11, pp. 3279–3289, Nov. 2010.
+
+        Parameters:
+            coef (numpy.ndarray): Coefficients for the nonuniformly spaced delay-line filter.
+
+        Returns:
+            tuple: Tuple containing magnitudes (ak) and time delays (tk) for each coefficient.
+        """
 
         ak = np.abs(coef)
 
@@ -152,6 +178,24 @@ class HilbertTransformErrorAnalyzer:
         return ak, tk
 
     def error_calculation(self, num_sim=100, err_range=[-10, 10], order=1, number_coef=7, f_center=8e9):
+
+        """
+        Perform simulations to calculate the Normalized Root Mean Square Error (NRMSE) for the fractional Hilbert transform.
+
+        This method simulates the effects of nonuniform delays on the fractional Hilbert transform (FHT) response,
+        calculating the NRMSE for both magnitude and phase components.
+
+        Parameters:
+            num_sim (int): Number of simulations to perform.
+            err_range (list): Range of error percentages for nonuniform delays.
+            order (float): Order ρ of the FHT results in a phase shift of ±ρπ/2 around the central frequency.
+            number_coef (int): Number of coefficients for building the FHT.
+            f_center (float): Central frequency for the fractional Hilbert transform.
+
+        Returns:
+            numpy.ndarray: Array containing NRMSE values for both magnitude and phase components.
+                Shape: (2, num_sim, num_sim)
+        """
 
         NRMSE = np.zeros((2, num_sim, num_sim))
         angle = np.rad2deg(order * np.pi / 2)
@@ -167,9 +211,6 @@ class HilbertTransformErrorAnalyzer:
         err_range = np.array(err_range) * 0.01
         # the error in time is based on T, the error goes from err_range[0]*T to err_range[0]*T with num_sim steps
         error_limits = np.linspace(err_range[0], err_range[1], num_sim)
-
-        # defining random seed
-        # np.random.seed(123)
 
         tk = tk - tk[0] # - tk[0] is used because the response_nonuni_HT() works only with positive values
 
@@ -200,6 +241,21 @@ class HilbertTransformErrorAnalyzer:
 
 
     def plot_nrmse(self, NRMSE, err_range, num_sim):
+        """
+        Plot the distribution of Normalized Root Mean Square Error (NRMSE) for magnitude and phase components.
+
+        This method generates two plots: one for the magnitude NRMSE and another for the phase NRMSE. The plots
+        include the distribution of NRMSE for two randomly selected simulations and the mean NRMSE across all simulations.
+
+        Parameters:
+            NRMSE (numpy.ndarray): Array containing NRMSE values for both magnitude and phase components.
+                Shape: (2, num_sim, num_sim)
+            err_range (list): Range of error percentages for nonuniform delays.
+            num_sim (int): Number of simulations performed.
+
+        Returns:
+            None
+        """
 
         mpl.use('TkAgg')  # using 'TkAgg' to handling figures
 
@@ -230,30 +286,44 @@ class HilbertTransformErrorAnalyzer:
 
 
     def plot_3d_nrmse(self, NRMSE, err_range, num_sim):
+        """
+        Plot the 3D distribution of Normalized Root Mean Square Error (NRMSE) for magnitude and phase components.
+
+        This method generates two 3D plots: one for the 3D magnitude NRMSE distribution and another for the 3D phase NRMSE distribution.
+
+        Parameters:
+            NRMSE (numpy.ndarray): Array containing NRMSE values for both magnitude and phase components.
+                Shape: (2, num_sim, num_sim)
+            err_range (list): Range of error percentages for nonuniform delays.
+            num_sim (int): Number of simulations performed.
+
+        Returns:
+            None
+        """
+
         mpl.use('TkAgg')  # using 'TkAgg' to handling figures
         # Get the dimensions
         dim1, dim2, dim3 = NRMSE.shape
-        # arrgar la correpondencia con los ejes
 
         # Plot for the first dimension
         fig1 = plt.figure(figsize=(8, 6))
         ax1 = fig1.add_subplot(111, projection='3d')
         x1, y1 = np.meshgrid(np.linspace(err_range[0], err_range[1], num_sim), range(dim3))
-        ax1.plot_surface(x1, y1, NRMSE[0, :, :], cmap='viridis')
-        ax1.set_title('First Dimension')
-        ax1.set_xlabel('X-axis')
-        ax1.set_ylabel('Y-axis')
-        ax1.set_zlabel('3D Magnitude N-RMSE distribution')
+        ax1.plot_surface(x1, y1, np.rot90(NRMSE[0, :, :]), cmap='viridis')
+        ax1.set_title('3D Magnitude N-RMSE distribution')
+        ax1.set_xlabel('Maximum error rate in all Taps (%)')
+        ax1.set_ylabel('Simulation number')
+        ax1.set_zlabel('Magnitude N-RMSE(%)')
 
         # Plot for the second dimension
         fig2 = plt.figure(figsize=(8, 6))
         ax2 = fig2.add_subplot(111, projection='3d')
         x2, y2 = np.meshgrid(np.linspace(err_range[0], err_range[1], num_sim), range(dim3))
-        ax2.plot_surface(x2, y2, NRMSE[1, :, :], cmap='viridis')
+        ax2.plot_surface(x2, y2, np.rot90(NRMSE[1, :, :]), cmap='viridis')
         ax2.set_title('3D Phase N-RMSE distribution')
-        ax2.set_xlabel('X-axis')
-        ax2.set_ylabel('Y-axis')
-        ax2.set_zlabel('Value')
+        ax2.set_xlabel('Maximum error rate in all Taps (%)')
+        ax2.set_ylabel('Simulation number')
+        ax2.set_zlabel('Phase N-RMSE(%)')
 
 
 
