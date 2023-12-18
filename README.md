@@ -1,29 +1,18 @@
-# HilbertTransformPrecisionAnalysis
-Explore Hilbert transform precision with this Python repository. Analyze sensitivity to power and delay inaccuracies in both nonuniformly and uniformly spaced delay-line filters. Includes optimized implementations and visualizations.
-**README:**
-
-
-
-This repository explores the impact of inaccuracies in power and delay on the precision of the Hilbert transform. The analysis is based on the findings presented in [APPENDIX II: Inaccuracies in Power and Delay in Hilbert Transform Precision].
+# Hilbert Transform Precision Analysis
+Explore the precision of the fractional Hilbert transform(FHT) with this Python repository. Analyze the sensitivity to power and delay inaccuracies in both nonuniformly and uniformly spaced delay-line filters' FHT implementations. Examine the system's sensitivity to inaccuracies in power and delay, specifically focusing on how the magnitude and phase of the system are affected.
 
 ## Contents
 
-- `nonuni_HT_analysis.py`: Python script for analyzing the precision of the Hilbert transform using a nonuniformly spaced delay-line filter.
+- `FHT_ErrorAnalyer.py`: Python class for his class for determine the error in the fractional Hilbert transform(FHT) when using nonuniformly delayed taps coefficients approach with empirical probabilities.
 
-- `uni_HT_analysis.py`: Python script for analyzing the precision of the Hilbert transform using a uniformly spaced delay-line filter.
-
-- `response_nonuni_HT.py`: Optimized Python implementation of the Hilbert transform response with a nonuniformly spaced delay-line filter.
-
-- `response_uni_HT.py`: Optimized Python implementation of the Hilbert transform response with a uniformly spaced delay-line filter.
-
-- `error_analysis_plots.ipynb`: Jupyter notebook containing visualizations of the impact of error rates on tap coefficients.
+- `main.py`: Python script containing visualizations of the impact of error rates on tap coefficients.
 
 ## Usage
 
 1. Clone the repository:
 
 ```bash
-git clone https://github.com/your-username/HilbertTransformPrecisionAnalysis.git
+git clone https://github.com/marioannier/HilbertTransformPrecisionAnalysis.git
 ```
 
 2. Navigate to the repository:
@@ -35,20 +24,36 @@ cd HilbertTransformPrecisionAnalysis
 3. Run the analysis scripts:
 
 ```bash
-python nonuni_HT_analysis.py
-python uni_HT_analysis.py
+python main.py
 ```
 
-4. Explore the Jupyter notebook for detailed visualizations:
+4. Explore the results for detailed visualizations ad play with the parameters:
 
-```bash
-jupyter notebook error_analysis_plots.ipynb
-```
+- **`err_range`**: The range of error rates in taps, specified as a percentage. In this case, it is set to `[-50, 50]`, indicating a variation between -10% and +10%. This parameter explores the impact of inaccuracies in the delay-line filter coefficients.
+
+- **`num_sim`**: Number of simulations. It is set to `1001` in this repository, indicating that the simulation will be performed 1001 times. Each simulation explores the Hilbert transform's precision under different conditions of error rates.
+
+- **`order`**: The order (`ρ`) of the fractional Hilbert transform. In this case, it is set to `1`. The order determines the phase shift of the transform results around the central frequency.
+
+- **`number_coef`**: Number of coefficients used for building the fractional Hilbert transform. It is set to `7`, implying that the transform is constructed using 7 coefficients in the delay-line filter.
+
+- **`f_center`**: Central frequency for the fractional Hilbert transform. It is set to `8e9` (8 gigahertz) and represents the frequency around which the precision analysis is centered.
+
+These parameters collectively define the conditions under which the precision analysis of the Hilbert transform is conducted, allowing the exploration of the system's sensitivity to errors in power and delay.
+
+
+
+### Results for 1001 error values (-50% and 50%) 
+
+| 2D Magnitude        | 2D Phase                |
+|---------------------|-------------------------|
+| ![img.png](img.png) | ![img_1.png](img_1.png) |
+
+| 3D Magnitude            | 3D Phase                |
+|-------------------------|-------------------------|
+| ![img_2.png](img_2.png) | ![img_3.png](img_3.png) |
+
 
 ## Findings
 
-The analysis reveals insights into the sensitivity of the Hilbert transform to inaccuracies in power and delay. Refer to [APPENDIX II] for detailed information on the methodology and results.
-
-Feel free to contribute, open issues, or use the code for your research.
-
-[APPENDIX II: Inaccuracies in Power and Delay in Hilbert Transform Precision]: [link to the full document]
+The analysis reveals that the RMSE between the zero-error response and the simulation tends to increase as the maximum value of introduced error increases.
