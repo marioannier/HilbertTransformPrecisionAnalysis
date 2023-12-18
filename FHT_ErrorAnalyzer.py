@@ -1,7 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
-from scipy.optimize import curve_fit
 
 class HilbertTransformErrorAnalyzer:
     """

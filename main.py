@@ -3,8 +3,8 @@ import matplotlib.pyplot as plt
 from FHT_ErrorAnalyzer import HilbertTransformErrorAnalyzer
 
 My_FHTErrorAnalyzer = HilbertTransformErrorAnalyzer()
-err_range = [-10, 10]
-num_sim = 101
+err_range = [-50, 50]
+num_sim = 1001
 order = 1
 number_coef = 7
 f_center = 8e9
