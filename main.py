@@ -4,7 +4,7 @@ from FHT_ErrorAnalyzer import HilbertTransformErrorAnalyzer
 
 My_FHTErrorAnalyzer = HilbertTransformErrorAnalyzer()
 err_range = [-10, 10]
-num_sim = 1001
+num_sim = 101
 order = 1
 number_coef = 7
 f_center = 8e9
